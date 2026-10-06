@@ -5,22 +5,49 @@
 
 import { ConfigsType } from '@common/default_configs'
 import { actions } from '@renderer/core/agent'
-import { configs_atom } from '@renderer/stores/configs'
+import { invalidateConfigSnapshot, loadConfigSnapshot } from '@renderer/core/configSnapshot'
+import { getErrorMessage, showErrorNotification } from '@renderer/core/notify'
+import { configsAtom } from '@renderer/stores/configs'
 import { useAtom } from 'jotai'
 
 export default function useConfigs() {
-  const [configs, setConfigs] = useAtom(configs_atom)
+  const [configs, setConfigs] = useAtom(configsAtom)
 
-  const loadConfigs = async () => {
-    setConfigs(await actions.configAll())
-  }
+  const loadConfigs = (onLoad?: (snapshot: ConfigsType) => void) =>
+    loadConfigSnapshot((next) => {
+      setConfigs(next)
+      onLoad?.(next)
+    })
 
-  const updateConfigs = async (kv: Partial<ConfigsType>) => {
-    if (!configs) return
-    // console.log('update configs:', kv)
-    let new_configs = { ...configs, ...kv }
-    setConfigs(new_configs)
-    await actions.configUpdate(new_configs)
+  const updateConfigs = async (
+    kv: Partial<ConfigsType>,
+    { notifyError = true, optimistic = true }: { notifyError?: boolean; optimistic?: boolean } = {},
+  ) => {
+    if (optimistic) setConfigs((prev) => (prev ? { ...prev, ...kv } : prev))
+    try {
+      await actions.configUpdate(kv)
+      invalidateConfigSnapshot()
+      if (!optimistic) setConfigs((prev) => (prev ? { ...prev, ...kv } : prev))
+    } catch (e) {
+      invalidateConfigSnapshot()
+      console.error('configUpdate failed', kv, e)
+      // Optimistic merge above means atom is now showing values the
+      // backend rejected. Pull the disk snapshot back so every
+      // subscriber (including callers that don't catch this rejection)
+      // sees the truth, not a phantom save.
+      try {
+        await loadConfigs()
+      } catch (reloadError) {
+        console.error('failed to reload configs after configUpdate failed', reloadError)
+      }
+      if (notifyError) {
+        showErrorNotification({
+          title: 'Failed to save configuration',
+          message: getErrorMessage(e, 'Unknown error'),
+        })
+      }
+      throw e
+    }
   }
 
   return {

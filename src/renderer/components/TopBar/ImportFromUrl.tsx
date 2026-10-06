@@ -5,62 +5,92 @@
 
 import { Button, Group, Modal, TextInput } from '@mantine/core'
 import { actions } from '@renderer/core/agent'
-import useHostsData from '@renderer/models/useHostsData'
+import {
+  showLoadingNotification,
+  updateErrorNotification,
+  hideAppNotification,
+} from '@renderer/core/notify'
+import type { ImportPreview } from '@common/import'
+import { importErrorMessage } from './ImportPreview'
 import useI18n from '@renderer/models/useI18n'
 import React, { useState } from 'react'
 import styles from './ImportFromUrl.module.scss'
 
 interface Props {
-  is_show: boolean
+  isShow: boolean
   setIsShow: (show: boolean) => void
+  onPreview: (preview: ImportPreview) => void
+}
+
+function parseImportUrl(input: string): string | null {
+  try {
+    const url = new URL(input.trim())
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null
+  } catch {
+    return null
+  }
 }
 
 const ImportFromUrl = (props: Props) => {
-  const { is_show: opened, setIsShow } = props
+  const { isShow: opened, setIsShow, onPreview } = props
   const { lang } = useI18n()
-  const { loadHostsData, setCurrentHosts } = useHostsData()
+  const [loading, setLoading] = useState(false)
+  const pending = React.useRef(false)
   const [url, setUrl] = useState('')
-  const ipt_ref = React.useRef<HTMLInputElement>(null)
+  const importUrl = parseImportUrl(url)
+  const iptRef = React.useRef<HTMLInputElement>(null)
 
   const onCancel = () => {
+    if (pending.current) return
     setIsShow(false)
     setUrl('')
   }
 
   const onOk = async () => {
-    setIsShow(false)
-    console.log(`url: ${url}`)
-
-    if (url) {
-      let r = await actions.importDataFromUrl(url)
-      console.log(r)
-
-      if (r === true) {
-        // import success
-        console.log(lang.import_done)
-        await loadHostsData()
-        setCurrentHosts(null)
-      } else {
-        let description = lang.import_fail
-        if (typeof r === 'string') {
-          description += ` [${r}]`
-        }
-
-        console.error(description)
-      }
+    if (pending.current || !importUrl) return
+    pending.current = true
+    setLoading(true)
+    const notificationId = showLoadingNotification({
+      title: lang.import_from_url,
+      message: lang.loading,
+    })
+    try {
+      const data = await actions.importDataFromUrl(importUrl)
+      if (!data || typeof data !== 'object' || !Array.isArray(data.list)) throw data
+      hideAppNotification(notificationId)
+      setIsShow(false)
+      setUrl('')
+      onPreview(data)
+    } catch (error) {
+      updateErrorNotification(notificationId, {
+        title: lang.import_from_url,
+        message: importErrorMessage(error, lang),
+      })
+    } finally {
+      pending.current = false
+      setLoading(false)
     }
-    setUrl('')
   }
 
   return (
-    <Modal opened={opened} onClose={onCancel} centered padding={0} withCloseButton={false}>
+    <Modal
+      opened={opened}
+      onClose={onCancel}
+      centered
+      closeOnClickOutside={!loading}
+      closeOnEscape={!loading}
+      withCloseButton={!loading}
+      padding={0}
+      title={lang.import}
+      styles={{ header: { padding: 'var(--mantine-spacing-md)' } }}
+    >
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Modal.CloseButton />
-        <div style={{ padding: 'var(--mantine-spacing-md)', paddingBottom: 24 }}>
+        <div style={{ padding: 'var(--mantine-spacing-md)', paddingTop: 0, paddingBottom: 24 }}>
           <div className={styles.label}>{lang.import_from_url}</div>
           <TextInput
-            ref={ipt_ref}
+            ref={iptRef}
             value={url}
+            disabled={loading}
             onChange={(e) => setUrl(e.target.value)}
             autoFocus={true}
             data-autofocus
@@ -78,10 +108,10 @@ const ImportFromUrl = (props: Props) => {
             padding: 'var(--mantine-spacing-md)',
           }}
         >
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
             {lang.btn_cancel}
           </Button>
-          <Button color="blue" onClick={onOk} disabled={!url || !url.match(/^https?:\/\/\w+/i)}>
+          <Button onClick={onOk} loading={loading} disabled={!importUrl}>
             {lang.btn_ok}
           </Button>
         </Group>

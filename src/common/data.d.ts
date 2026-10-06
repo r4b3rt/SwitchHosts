@@ -3,6 +3,15 @@ import { ITreeNodeData } from './tree'
 export type HostsType = 'local' | 'remote' | 'group' | 'folder'
 export type FolderModeType = 0 | 1 | 2 // 0: 默认; 1: 单选; 2: 多选
 
+export interface IDomainResolution {
+  domain: string
+  ips: string[]
+  status: 'resolved' | 'stale' | 'failed'
+  last_success?: string
+  last_success_ms?: number
+  error?: string
+}
+
 export interface IHostsListObject {
   id: string
   title?: string
@@ -10,7 +19,13 @@ export interface IHostsListObject {
   type?: HostsType
 
   // remote
+  source?: 'url' | 'domain' // missing ⇒ 'url'; old domain entries use `url`
   url?: string
+  domains?: string[]
+  domain_results?: IDomainResolution[]
+  domain_refresh_status?: 'complete' | 'partial' | 'failed'
+  last_attempt?: string
+  last_attempt_ms?: number
   last_refresh?: string
   last_refresh_ms?: number
   refresh_interval?: number // 单位：秒
@@ -57,9 +72,13 @@ export interface IHostsHistoryObject {
   label?: string
 }
 
-export type VersionType = [number, number, number, number]
+export type VersionType = string
+
+export type IApplicationRecovery =
+  { status: 'applied'; list: IHostsListObject[] } | { status: 'unknown' }
 
 export interface IHostsBasicData {
+  application_recovery?: IApplicationRecovery | null
   list: IHostsListObject[]
   trashcan: ITrashcanObject[]
   version: VersionType

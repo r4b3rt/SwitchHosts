@@ -1,5 +1,4 @@
 .root {
-
 }
 
 .node {
@@ -7,16 +6,30 @@
   line-height: var(--swh-tree-row-height);
   border-radius: 4px;
 
-  &:hover {
-    background: var(--swh-tree-hover-bg);
+  // Hover signal comes from JS-tracked `data-hovered` rather than
+  // CSS :hover — see Node.tsx for the reason (WebKit leaves :hover
+  // stuck after drag operations).
+  &[data-hovered='1'] {
+    background: var(--swh-hosts-selected-bg);
   }
 }
 
 .node_selected {
-  background: var(--swh-tree-selected-bg);
+  background: var(--swh-hosts-selected-bg);
+  color: var(--swh-hosts-selected-color);
 
-  &:hover {
-    background: var(--swh-tree-selected-bg);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    border-radius: var(--swh-border-radius) 0 0 var(--swh-border-radius);
+    background: var(--swh-hosts-selected-indicator);
+    pointer-events: none;
+  }
+
+  &[data-hovered='1'] {
+    background: var(--swh-hosts-selected-bg);
 
     .edit {
       display: block;
@@ -25,7 +38,7 @@
 }
 
 .node_drop_in {
-  div[data-role="tree-node-body"] {
+  div[data-role='tree-node-body'] {
     background: var(--swh-primary-color);
     color: var(--swh-font-color-reverse);
     border-radius: var(--swh-border-radius);

@@ -1,4 +1,5 @@
 .idea
+.claude/
 
 # dependencies
 node_modules
@@ -9,6 +10,7 @@ package-lock.json
 
 # production
 build
+build-tauri
 dist
 
 # misc
@@ -26,6 +28,13 @@ src/renderer/dist
 
 tmp
 test/tmp
+playwright-report
+test-results
+plan.md
 
 .env
 *.provisionprofile
+
+# Tauri
+src-tauri/target
+src-tauri/gen/schemas

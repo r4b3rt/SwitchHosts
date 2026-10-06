@@ -11,20 +11,20 @@ type PartHostsObjectType = Partial<IHostsListObject> & { id: string }
 type Predicate = (obj: IHostsListObject) => boolean
 
 export const flatten = (list: IHostsListObject[]): IHostsListObject[] => {
-  let new_list: IHostsListObject[] = []
+  let newList: IHostsListObject[] = []
 
   list.map((item) => {
-    new_list.push(item)
+    newList.push(item)
     if (item.children) {
-      new_list = [...new_list, ...flatten(item.children)]
+      newList = [...newList, ...flatten(item.children)]
     }
   })
 
-  return new_list
+  return newList
 }
 
 export const cleanHostsList = (data: IHostsBasicData): IHostsBasicData => {
-  let list = flatten(data.list)
+  const list = flatten(data.list)
 
   list.map((item) => {
     if (item.type === 'folder' && !Array.isArray(item.children)) {
@@ -54,14 +54,14 @@ export const updateOneItem = (
   list: IHostsListObject[],
   item: PartHostsObjectType,
 ): IHostsListObject[] => {
-  let new_list: IHostsListObject[] = lodash.cloneDeep(list)
+  const newList: IHostsListObject[] = lodash.cloneDeep(list)
 
-  let i = findItemById(new_list, item.id)
+  const i = findItemById(newList, item.id)
   if (i) {
     Object.assign(i, item)
   }
 
-  return new_list
+  return newList
 }
 
 const isInTopLevel = (list: IHostsListObject[], id: string): boolean => {
@@ -72,48 +72,48 @@ export const setOnStateOfItem = (
   list: IHostsListObject[],
   id: string,
   on: boolean,
-  default_choice_mode: FolderModeType = 0,
-  multi_chose_folder_switch_all: boolean = false,
+  defaultChoiceMode: FolderModeType = 0,
+  multiChoseFolderSwitchAll: boolean = false,
 ): IHostsListObject[] => {
-  let new_list: IHostsListObject[] = lodash.cloneDeep(list)
+  const newList: IHostsListObject[] = lodash.cloneDeep(list)
 
-  let item = findItemById(new_list, id)
-  if (!item) return new_list
+  let item = findItemById(newList, id)
+  if (!item) return newList
 
   item.on = on
 
-  let itemIsInTopLevel = isInTopLevel(list, id)
-  if (multi_chose_folder_switch_all) {
+  const itemIsInTopLevel = isInTopLevel(list, id)
+  if (multiChoseFolderSwitchAll) {
     item = switchFolderChild(item, on)
-    !itemIsInTopLevel && switchItemParentIsON(new_list, item, on)
+    if (!itemIsInTopLevel) switchItemParentIsON(newList, item, on)
   }
 
   if (!on) {
-    return new_list
+    return newList
   }
 
   if (itemIsInTopLevel) {
-    if (default_choice_mode === 1) {
-      new_list.map((item) => {
+    if (defaultChoiceMode === 1) {
+      newList.map((item) => {
         if (item.id !== id) {
           item.on = false
-          if (multi_chose_folder_switch_all) {
-            item = switchFolderChild(item, false)
+          if (multiChoseFolderSwitchAll) {
+            switchFolderChild(item, false)
           }
         }
       })
     }
   } else {
-    let parent = getParentOfItem(new_list, id)
+    const parent = getParentOfItem(newList, id)
     if (parent) {
-      let folder_mode = parent.folder_mode || default_choice_mode
-      if (folder_mode === 1 && parent.children) {
+      const folderMode = parent.folder_mode || defaultChoiceMode
+      if (folderMode === 1 && parent.children) {
         // 单选模式
         parent.children.map((item) => {
           if (item.id !== id) {
             item.on = false
-            if (multi_chose_folder_switch_all) {
-              item = switchFolderChild(item, false)
+            if (multiChoseFolderSwitchAll) {
+              switchFolderChild(item, false)
             }
           }
         })
@@ -121,7 +121,7 @@ export const setOnStateOfItem = (
     }
   }
 
-  return new_list
+  return newList
 }
 
 export const switchItemParentIsON = (
@@ -129,7 +129,7 @@ export const switchItemParentIsON = (
   item: IHostsListObject,
   on: boolean,
 ) => {
-  let parent = getParentOfItem(list, item.id)
+  const parent = getParentOfItem(list, item.id)
 
   if (parent) {
     if (parent.folder_mode === 1) {
@@ -147,7 +147,7 @@ export const switchItemParentIsON = (
       parent.on = parentOn
     }
 
-    let itemIsInTopLevel = isInTopLevel(list, parent.id)
+    const itemIsInTopLevel = isInTopLevel(list, parent.id)
     if (!itemIsInTopLevel) {
       switchItemParentIsON(list, parent, on)
     }
@@ -158,8 +158,8 @@ export const switchFolderChild = (item: IHostsListObject, on: boolean): IHostsLi
   if (item.type != 'folder') {
     return item
   }
-  let folder_mode = item.folder_mode
-  if (folder_mode === 1) {
+  const folderMode = item.folder_mode
+  if (folderMode === 1) {
     return item
   }
 
@@ -167,7 +167,7 @@ export const switchFolderChild = (item: IHostsListObject, on: boolean): IHostsLi
     item.children.forEach((item) => {
       item.on = on
       if (item.type == 'folder') {
-        item = switchFolderChild(item, on)
+        switchFolderChild(item, on)
       }
     })
   }
@@ -176,7 +176,7 @@ export const switchFolderChild = (item: IHostsListObject, on: boolean): IHostsLi
 }
 
 export const deleteItemById = (list: IHostsListObject[], id: string) => {
-  let idx = list.findIndex((item) => item.id === id)
+  const idx = list.findIndex((item) => item.id === id)
   if (idx >= 0) {
     list.splice(idx, 1)
     return
@@ -196,35 +196,78 @@ export const getNextSelectedItem = (
   tree: IHostsListObject[],
   predicate: Predicate,
 ): IHostsListObject | undefined => {
-  let flat = flatten(tree)
-  let idx_1 = -1
-  let idx_2 = -1
+  const flat = flatten(tree)
+  let idx1 = -1
+  let idx2 = -1
 
   flat.map((i, idx) => {
     if (predicate(i)) {
-      if (idx_1 === -1) {
-        idx_1 = idx
+      if (idx1 === -1) {
+        idx1 = idx
       }
-      idx_2 = idx
+      idx2 = idx
     }
   })
 
-  return flat[idx_2 + 1] || flat[idx_1 - 1]
+  return flat[idx2 + 1] || flat[idx1 - 1]
 }
 
 export const getParentOfItem = (
   list: IHostsListObject[],
-  item_id: string,
+  itemId: string,
 ): IHostsListObject | undefined => {
-  if (list.find((i) => i.id === item_id)) {
+  if (list.find((i) => i.id === itemId)) {
     // is in the top level
     return
   }
 
-  let flat = flatten(list)
-  for (let p of flat) {
-    if (p.children && p.children.find((i) => i.id === item_id)) {
+  const flat = flatten(list)
+  for (const p of flat) {
+    if (p.children && p.children.find((i) => i.id === itemId)) {
       return p
     }
+  }
+}
+
+// Must stay in sync with `is_valid_domain` in `src-tauri/src/dns.rs`.
+export const isValidDomain = (s: string): boolean => {
+  const v = s.trim()
+  if (!v || v.length > 253) return false
+  if (v.includes('://')) return false
+  if (/[/:@\s]/.test(v)) return false
+  if (v.endsWith('.')) return false
+  const labels = v.split('.')
+  if (labels.length < 2) return false
+  for (const label of labels) {
+    if (!label || label.length > 63) return false
+    if (label.startsWith('-') || label.endsWith('-')) return false
+    if (!/^[a-zA-Z0-9-]+$/.test(label)) return false
+  }
+  const tld = labels[labels.length - 1]
+  if (tld.length < 2) return false
+  // not an IPv4 literal (IPv6 contains ':' and was rejected above)
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return false
+  return true
+}
+
+// Extract a bare domain or the hostname of a network URL. Use the standard
+// parser for URL authorities so invalid ports and userinfo cannot silently
+// discard part of the input. HTTP(S), FTP and WS(S) URLs are supported.
+export const extractDomain = (input: string): string | null => {
+  const v = input.trim()
+  // Backslashes are treated as path separators by special URL schemes, which
+  // can make an apparent userinfo/hostname pair resolve to a different host.
+  // Require an unambiguous input instead of silently repairing it.
+  if (!v || /[\s\\]/.test(v)) return null
+  if (isValidDomain(v)) return v
+
+  const scheme = v.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//)
+  try {
+    const url = new URL(scheme ? v : `https://${v}`)
+    if (!['http:', 'https:', 'ftp:', 'ws:', 'wss:'].includes(url.protocol)) return null
+    const domain = url.hostname.replace(/\.$/, '')
+    return isValidDomain(domain) ? domain : null
+  } catch {
+    return null
   }
 }
